@@ -55,7 +55,7 @@ class Erb2epp
     end
 
     # Append `{` to the `if` code line
-    res.push '{ ' if ops['if'] == true
+    res.push ' {' if ops['if'] == true
 
     # Assemble the tokens again
     res.join
