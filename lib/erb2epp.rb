@@ -65,7 +65,7 @@ class Erb2epp
   end
 
   def walk_erb(node)
-    out = ''
+    out = +''
     case node[0]
     when :multi
       node[1..].each do |n|
