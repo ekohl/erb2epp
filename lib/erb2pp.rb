@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'temple'
 require 'ripper'
 
@@ -24,7 +26,7 @@ class Erb2epp
 
       case type
       when :on_ivar
-        r = value.gsub(%r{@([a-z][A-Za-z0-9_]*)}, '$\1')
+        r = value.gsub(/@([a-z][A-Za-z0-9_]*)/, '$\1')
         @vars_found.push r
       when :on_op
         case value
@@ -57,13 +59,13 @@ class Erb2epp
 
     # Assemble the tokens again
     res.join
-  rescue
+  rescue StandardError
     warn code
     raise
   end
 
   def walk_erb(node)
-    out = ""
+    out = ''
     case node[0]
     when :multi
       node[1..].each do |n|
@@ -72,15 +74,16 @@ class Erb2epp
     when :static
       out << node[1]
     when :newline
+      # Eat the newline
     when :code
       # Handle <%
       out << "<%#{rewrite_code(node[1])}%>"
     when :escape
       # Handle <%=
       # TODO: node[1] is a boolean, what to do with it?
-      out << "<%="
+      out << '<%='
       out << walk_erb(node[2])
-      out << "%>"
+      out << '%>'
     when :dynamic
       # Handle ruby code
       out << rewrite_code(node[1])
@@ -97,9 +100,9 @@ class Erb2epp
     ast = parser.call(input)
     epp = walk_erb(ast)
 
-    output.puts "<%- |"
+    output.puts '<%- |'
     @vars_found.sort.uniq.each { |v| output.puts "  #{v}," }
-    output.puts "| -%>"
+    output.puts '| -%>'
     output.puts epp
   end
 end
