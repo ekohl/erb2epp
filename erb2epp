@@ -1,77 +1,106 @@
-#!/usr/bin/ruby
+#!/usr/bin/env ruby
 
 require 'temple'
 require 'ripper'
 
 # Rewrite code from Ruby to EPP
-#
-# This comes down to replacing @var with $var
-def rewrite_code(code)
-  tokens = Ripper.lex(code)
-
-  # First pass: rewrite
-  tokens.each do |token|
-    # [[lineno, column], type, token, state]
-    _, type, value, _state = token
-    case type
-    when :on_ivar
-      token[2] = value.gsub(/@([a-z][A-Za-z0-9_]*)/, '$\1')
-      # TODO: Store variable name somewhere to build a list of inputs
-    when :on_op
-      case value
-      when '||'
-        token[2] = 'or'
-      when '&&'
-        token[2] = 'and'
-      end
-    when :on_kw
-      case value
-      when 'end'
-        token[2] = '}'
-      when 'if'
-        # TODO: append { somewhere
-      end
-    end
+class Erb2epp
+  def initialize
+    @vars_found = []
   end
 
-  # Assemble the tokens again
-  tokens.map { |_, _, token, _| token }.join
-rescue
-  $stderr.puts code
-  raise
-end
+  # Rewrite a line of code
+  def rewrite_code(code)
+    tokens = Ripper.lex(code)
+    res = []
+    ops = {}
 
-def walk_erb(node)
-  case node[0]
-  when :multi
-    node[1..].each do |n|
-      walk_erb(n)
+    # First pass: rewrite
+    tokens.each do |token|
+      # [[lineno, column], type, token, state]
+      _, type, value, _state = token
+      r = value
+
+      case type
+      when :on_ivar
+        r = value.gsub(%r{@([a-z][A-Za-z0-9_]*)}, '$\1')
+        @vars_found.push r
+      when :on_op
+        case value
+        when '||'
+          r = 'or'
+        when '&&'
+          r = 'and'
+        end
+      when :on_kw
+        case value
+        when 'if'
+          ops['if'] = true
+        when 'then'
+          r = '{'
+          ops['if'] = false
+        when 'do', '{'
+          r = '{'
+        when 'else'
+          r = '} else {'
+        when 'end'
+          r = '}'
+        end
+      end
+
+      res.push r
     end
-  when :static
-    print node[1]
-  when :newline
-  when :code
-    # Handle <%
-    print "<%#{rewrite_code(node[1])}%>"
-  when :escape
-    # Handle <%=
-    # TODO: node[1] is a boolean, what to do with it?
-    print "<%="
-    walk_erb(node[2])
-    print "%>"
-  when :dynamic
-    # Handle ruby code
-    print rewrite_code(node[1])
-  else
-    $stderr.puts "Unknown ERB node type #{node[0]}"
-    exit(1)
+
+    # Append `{` to the `if` code line
+    res.push '{ ' if ops['if'] == true
+
+    # Assemble the tokens again
+    res.join
+  rescue
+    warn code
+    raise
+  end
+
+  def walk_erb(node)
+    out = ""
+    case node[0]
+    when :multi
+      node[1..].each do |n|
+        out << walk_erb(n)
+      end
+    when :static
+      out << node[1]
+    when :newline
+    when :code
+      # Handle <%
+      out << "<%#{rewrite_code(node[1])}%>"
+    when :escape
+      # Handle <%=
+      # TODO: node[1] is a boolean, what to do with it?
+      out << "<%="
+      out << walk_erb(node[2])
+      out << "%>"
+    when :dynamic
+      # Handle ruby code
+      out << rewrite_code(node[1])
+    else
+      warn "Unknown ERB node type #{node[0]}"
+      exit(1)
+    end
+
+    out
+  end
+
+  def run
+    parser = Temple::ERB::Parser.new
+    ast = parser.call($stdin.read)
+    epp = walk_erb(ast)
+
+    puts "<%- |"
+    @vars_found.sort.uniq.each { |v| puts "  #{v}," }
+    puts "| -%>"
+    puts epp
   end
 end
 
-def main()
-  parser = Temple::ERB::Parser.new
-  ast = parser.call(STDIN.read)
-  walk_erb(ast)
-end
-
-main
+Erb2epp.new.run
