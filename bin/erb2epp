@@ -1,0 +1,5 @@
+#!/usr/bin/env ruby
+
+require 'erb2epp'
+
+Erb2epp.new.run

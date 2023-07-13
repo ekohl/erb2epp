@@ -1,5 +1,3 @@
-#!/usr/bin/env ruby
-
 require 'temple'
 require 'ripper'
 
@@ -94,16 +92,14 @@ class Erb2epp
     out
   end
 
-  def run
+  def run(input = $stdin, output = $stdout)
     parser = Temple::ERB::Parser.new
-    ast = parser.call($stdin.read)
+    ast = parser.call(input)
     epp = walk_erb(ast)
 
-    puts "<%- |"
-    @vars_found.sort.uniq.each { |v| puts "  #{v}," }
-    puts "| -%>"
-    puts epp
+    output.puts "<%- |"
+    @vars_found.sort.uniq.each { |v| output.puts "  #{v}," }
+    output.puts "| -%>"
+    output.puts epp
   end
 end
-
-Erb2epp.new.run
