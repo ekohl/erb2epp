@@ -97,7 +97,7 @@ class Erb2epp
 
   def run(input = $stdin, output = $stdout)
     parser = Temple::ERB::Parser.new
-    ast = parser.call(input)
+    ast = parser.call(input.read)
     epp = walk_erb(ast)
 
     output.puts '<%- |'
