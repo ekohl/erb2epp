@@ -6,6 +6,10 @@ gemspec
 
 gem 'rake', '~> 13.0'
 
+group :test do
+  gem 'rspec', '~> 3.12'
+end
+
 group :rubocop do
   gem 'voxpupuli-rubocop', '~> 1.4.0'
 end
