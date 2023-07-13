@@ -3,13 +3,16 @@
 require 'temple'
 require 'ripper'
 
-# Rewrite code from Ruby to EPP
+# Rewrite code from Ruby ERB to Puppet EPP
 class Erb2epp
   def initialize
     @vars_found = []
   end
 
-  # Rewrite a line of code
+  # Rewrite a piece of Ruby code
+  #
+  # The ruby code blocks in ERB are not full programs so a parser can't be
+  # used. A lexer is used instead.
   def rewrite_code(code)
     tokens = Ripper.lex(code)
     res = []
