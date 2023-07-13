@@ -1,0 +1,34 @@
+---
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+concurrency:
+  group: ${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  rubocop:
+    name: Rubocop
+    uses: theforeman/actions/.github/workflows/rubocop.yml@v0
+    with:
+      ruby: '3.2'
+
+  test:
+    name: Tests
+    uses: theforeman/actions/.github/workflows/test-gem.yml@v0
+    with:
+      ruby: '["3.2", "3.1", "3.0", "2.7"]'
+
+  suite:
+    name: Test suite
+    runs-on: ubuntu-latest
+    needs:
+      - rubocop
+      - test
+    steps:
+      - run: echo Suite complete
