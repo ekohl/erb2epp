@@ -3,4 +3,4 @@
 
 require 'erb2epp'
 
-Erb2epp.new.run
+Erb2epp.run

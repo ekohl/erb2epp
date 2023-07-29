@@ -2,7 +2,7 @@
 
 require 'spec_helper'
 
-describe Erb2epp do
+describe Erb2epp::Rewriter do
   describe '.rewrite_code' do
     subject(:rewritten) { described_class.new.rewrite_code(code) }
 
