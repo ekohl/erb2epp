@@ -10,13 +10,12 @@ module Erb2epp
       @local_vars = []
     end
 
-    # Rewrite a block variable names within |...|
-    def rewrite_vars_in_pipes(tokens)
+    # Store block variable names to prepend with '$' later
+    def collect_vars_in_pipes(tokens)
       res = []
       tokens.each do |type, value|
         case type
         when :on_ident
-          value = "$#{value}"
           @local_vars << value
         end
         res << [type, value]
@@ -24,21 +23,58 @@ module Erb2epp
       res
     end
 
+    # Store local variable names to prepend with '$' later
+    # Look for "var =" or "(var1, var2) ="
+    def collect_local_vars(tokens)
+      allowed_tokens = " -\n(,)=".chars.freeze
+      maybe_vars = []
+      tokens.each do |type, value|
+        case type
+        when :on_ident
+          maybe_vars << value
+        else
+          break unless allowed_tokens.include? value # Not an evaluation
+
+          if value == '='
+            @local_vars.concat maybe_vars
+            break
+          end
+        end
+      end
+    end
+
+    # Rewrite local variables
+    def rewrite_local_vars(tokens)
+      res = []
+      tokens.each do |type, value|
+        case type
+        when :on_ident
+          value = "$#{value}" if @local_vars.include? value
+        end
+        res << [type, value]
+      end
+      res
+    end
+
     # Add an opening curly bracked to the end of `if` statement line
-    def on_if(tokens, code)
-      return tokens unless code.count('{').zero?
+    def rewrite_if(tokens)
+      return tokens unless tokens.count { |x| x[1] == '{' }.zero?
 
       # We need the opening bracket
       ocb_pos = tokens.size - 1
       # Go back until non-[ -\n] found
-      ignored_tokens = %i[on_nl on_op on_sp].freeze
-      ocb_pos -= 1 while ignored_tokens.include? tokens[ocb_pos][0]
-      tokens.insert(ocb_pos + 1, [:on_sp, ' '], [:on_kw, '{'])
-      tokens
+      allowed_tokens = " -\n".chars.freeze
+      ocb_pos -= 1 while allowed_tokens.include? tokens[ocb_pos][1]
+
+      res = tokens[..ocb_pos]
+      res << [:on_sp, ' ']
+      res << [:on_kw, '{']
+      res.concat tokens[ocb_pos + 1..]
+      res
     end
 
     # Swap opening curly bracket and block vars: {|x| ..} => |x| {..}
-    def on_blockvars(tokens)
+    def rewrite_blockvars(tokens)
       pos = { lbrace: 0, lpipe: 0, rpipe: 0 }
       res = []
       idx = 0
@@ -57,7 +93,7 @@ module Erb2epp
         # When every position is positive then we found the whole "{ |...|" string, time to rewrite it
         new_res = res[0..(pos[:lbrace]) - 1]                             # copy everything before lbrace
         new_res << [:on_sp, ' '] if new_res.last[0] != :on_sp            # add space if none
-        new_res.concat rewrite_vars_in_pipes(res[(pos[:lpipe])..(pos[:rpipe])]) # from lpipe to rpipe
+        new_res.concat collect_vars_in_pipes(res[(pos[:lpipe])..(pos[:rpipe])]) # from lpipe to rpipe
         new_res << [:on_sp, ' ']     # space before lbrace
         new_res << [:on_lbrace, '{'] # lbrace
 
@@ -73,8 +109,11 @@ module Erb2epp
       tokens = rewrite_tokens(code)
       rewritten_code = tokens.map { |x| x[1] }.join
 
-      tokens = on_if(tokens, rewritten_code) if /^[- ]*if/.match? rewritten_code
-      tokens = on_blockvars(tokens) if /{[^}]*?\|[^\|]*?\|/.match? rewritten_code
+      tokens = rewrite_if(tokens) if /^[- ]*if/.match? rewritten_code
+      tokens = rewrite_blockvars(tokens) if /{[^}]*?\|[^\|]*?\|/.match? rewritten_code
+
+      collect_local_vars(tokens) if /[a-z][A-Za-z0-9_(), ]*=/.match? rewritten_code
+      tokens = rewrite_local_vars(tokens)
 
       # Cannot use rewritten_code here as tokens might be modified
       tokens.map { |x| x[1] }.join
