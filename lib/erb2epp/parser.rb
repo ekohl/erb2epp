@@ -39,6 +39,8 @@ module Erb2epp
         end
       end
       result << [:static, input[pos..]]
+
+      result
     end
   end
 end
