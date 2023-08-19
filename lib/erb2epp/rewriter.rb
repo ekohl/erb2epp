@@ -6,6 +6,9 @@ require 'set'
 module Erb2epp
   # Rewrite code from Ruby ERB to Puppet EPP
   class Rewriter
+    LOCAL_VARS_SKIP_TOKENS = Set.new(" -\n(,)=".chars).freeze
+    IF_SKIP_TOKENS = Set.new(" -\n".chars).freeze
+
     def initialize
       @epp_params = Set.new
       @local_vars = Set.new
@@ -27,14 +30,13 @@ module Erb2epp
     # Store local variable names to prepend with '$' later
     # Look for "var =" or "(var1, var2) ="
     def collect_local_vars(tokens)
-      allowed_tokens = " -\n(,)=".chars.freeze
       maybe_vars = Set.new
       tokens.each do |type, value|
         case type
         when :on_ident
           maybe_vars << value
         else
-          break unless allowed_tokens.include? value # Not an evaluation
+          break unless LOCAL_VARS_SKIP_TOKENS.include? value # Not an evaluation
 
           if value == '='
             @local_vars |= maybe_vars
@@ -64,8 +66,7 @@ module Erb2epp
       # We need the opening bracket
       ocb_pos = tokens.size - 1
       # Go back until non-[ -\n] found
-      allowed_tokens = " -\n".chars.freeze
-      ocb_pos -= 1 while allowed_tokens.include? tokens[ocb_pos][1]
+      ocb_pos -= 1 while IF_SKIP_TOKENS.include? tokens[ocb_pos][1]
 
       res = tokens[..ocb_pos]
       res << [:on_sp, ' ']
