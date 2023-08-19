@@ -59,11 +59,11 @@ module Erb2epp
       res
     end
 
-    # Add an opening curly bracked to the end of `if` statement line
+    # Add an opening brace to the end of `if` statement line
     def rewrite_if(tokens)
       return tokens unless tokens.count { |x| x[1] == '{' }.zero?
 
-      # We need the opening bracket
+      # We need the opening brace
       ocb_pos = tokens.size - 1
       # Go back until non-[ -\n] found
       ocb_pos -= 1 while IF_SKIP_TOKENS.include? tokens[ocb_pos][1]
@@ -75,7 +75,7 @@ module Erb2epp
       res
     end
 
-    # Swap opening curly bracket and block vars: {|x| ..} => |x| {..}
+    # Swap opening brace and block vars: {|x| ..} => |x| {..}
     def rewrite_blockvars(tokens)
       pos = { lbrace: 0, lpipe: 0, rpipe: 0 }
       res = []
