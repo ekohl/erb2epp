@@ -1,13 +1,14 @@
 # frozen_string_literal: true
 
 require 'ripper'
+require 'set'
 
 module Erb2epp
   # Rewrite code from Ruby ERB to Puppet EPP
   class Rewriter
     def initialize
-      @epp_params = []
-      @local_vars = []
+      @epp_params = Set.new
+      @local_vars = Set.new
     end
 
     # Store block variable names to prepend with '$' later
@@ -27,7 +28,7 @@ module Erb2epp
     # Look for "var =" or "(var1, var2) ="
     def collect_local_vars(tokens)
       allowed_tokens = " -\n(,)=".chars.freeze
-      maybe_vars = []
+      maybe_vars = Set.new
       tokens.each do |type, value|
         case type
         when :on_ident
@@ -36,7 +37,7 @@ module Erb2epp
           break unless allowed_tokens.include? value # Not an evaluation
 
           if value == '='
-            @local_vars.concat maybe_vars
+            @local_vars |= maybe_vars
             break
           end
         end
@@ -204,11 +205,13 @@ module Erb2epp
       epp = walk_erb(ast)
 
       output = ['<%- |']
-      @epp_params.sort.uniq.each { |v| output << "  #{v}," }
+      @epp_params.sort.each { |v| output << "  #{v}," }
       output << '| -%>'
       output << epp
 
-      @epp_params = []
+      @epp_params.clear
+      @local_vars.clear
+
       output.join("\n")
     end
   end
