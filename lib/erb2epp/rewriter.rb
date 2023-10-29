@@ -106,15 +106,19 @@ module Erb2epp
       res
     end
 
+    # Check if tokens as a string match a regexp
+    def tokens_match?(tokens, pattern)
+      pattern.match? tokens.map { |x| x[1] }.join
+    end
+
     # Rewrite a piece of Ruby code
     def rewrite_code(code)
       tokens = rewrite_tokens(code)
-      rewritten_code = tokens.map { |x| x[1] }.join
 
-      tokens = rewrite_if(tokens) if /^[- ]*if/.match? rewritten_code
-      tokens = rewrite_blockvars(tokens) if /{[^}]*?\|[^\|]*?\|/.match? rewritten_code
+      tokens = rewrite_if(tokens) if tokens_match?(tokens, /^[- ]*if/)
+      tokens = rewrite_blockvars(tokens) if tokens_match?(tokens, /{[^}]*?\|[^\|]*?\|/)
 
-      collect_local_vars(tokens) if /[a-z][A-Za-z0-9_(), ]*=/.match? rewritten_code
+      collect_local_vars(tokens) if tokens_match?(tokens, /[a-z][A-Za-z0-9_(), ]*=/)
       tokens = rewrite_local_vars(tokens)
 
       # Cannot use rewritten_code here as tokens might be modified
